@@ -267,18 +267,19 @@ sub getPolicyMembers
 # Get group members from group name
 sub getGroupMembers
 {
-	my $group = shift;
+        #my $group = shift;
+        my ($group, $sessionData) = @_;
+        my ($email_user,$email_domain) = ($sessionData->{'Sender'} =~ /^(\S+)@(\S+)$/);
 
-
-	# Check cache
-	my ($cache_res,$cache) = cacheGetKeyPair('Policies/Groups/Name-to-Members',$group);
-	if ($cache_res) {
-		return awitpt::cache::Error();
-	}
-	if (defined($cache)) {
-		my @groupMembers = split(/,/,$cache);
-		return \@groupMembers;
-	}
+	## Check cache
+	#my ($cache_res,$cache) = cacheGetKeyPair('Policies/Groups/Name-to-Members',$group);
+	#if ($cache_res) {
+	#	return awitpt::cache::Error();
+	#}
+	#if (defined($cache)) {
+	#	my @groupMembers = split(/,/,$cache);
+	#	return \@groupMembers;
+	#}
 
 	# Grab group members
 	my $sth = DBSelect('
@@ -291,8 +292,26 @@ sub getGroupMembers
 			AND @TP@policy_groups.ID = @TP@policy_group_members.PolicyGroupID
 			AND @TP@policy_groups.Disabled = 0
 			AND @TP@policy_group_members.Disabled = 0
+                        AND @TP@ (
+                                @TP@ policy_group_members.Member like ?
+                                @TP@ OR policy_group_members.Member like ?
+                                @TP@ OR policy_group_members.Member like ?
+                                @TP@ OR policy_group_members.Member like ?
+                                @TP@ OR policy_group_members.Member like ?
+                                @TP@ OR policy_group_members.Member like ?
+                                @TP@ OR policy_group_members.Member like ?
+                                @TP@ OR policy_group_members.Member like ?
+                        @TP@)
 		',
-		$group
+		$group,
+                $sessionData->{'Sender'}."%",
+                $sessionData->{'SASLUsername'}."%",
+                $sessionData->{'ClientAddress'}."%",
+                "%".$sessionData->{'ClientReverseName'}."%",
+                $email_user."@%",
+                "%@".$email_domain,
+                "$%",
+                "!%"
 	);
 	if (!$sth) {
 		return awitpt::db::dblayer::Error();
@@ -303,11 +322,11 @@ sub getGroupMembers
 		push(@groupMembers,$row->{'Member'});
 	}
 
-	# Cache this
-	$cache_res = cacheStoreKeyPair('Policies/Groups/Name-to-Members',$group,join(',',@groupMembers));
-	if ($cache_res) {
-		return awitpt::cache::Error();
-	}
+	## Cache this
+	#$cache_res = cacheStoreKeyPair('Policies/Groups/Name-to-Members',$group,join(',',@groupMembers));
+	#if ($cache_res) {
+	#	return awitpt::cache::Error();
+	#}
 
 	return \@groupMembers;
 }
@@ -349,7 +368,7 @@ sub policySourceItemMatches
 		}
 
 		# Get group members
-		my $groupMembers = getGroupMembers($item);
+		my $groupMembers = getGroupMembers($item, $sessionData);
 		if (ref $groupMembers ne "ARRAY") {
 			$server->log(LOG_WARN,"[POLICIES] $debugTxt: Error '$groupMembers' while retrieving group members for source group '$item'");
 			return -1;
@@ -369,9 +388,10 @@ sub policySourceItemMatches
 					last;
 				}
 			}
-		} else {
-			$server->log(LOG_WARN,"[POLICIES] $debugTxt: No group members for source group '$item'");
 		}
+		#} else {
+		#	$server->log(LOG_WARN,"[POLICIES] $debugTxt: No group members for source group '$item'");
+		#}
 		$server->log(LOG_DEBUG,"[POLICIES] $debugTxt=>(group:$item): Source group result: matched=$match") if ($log);
 
 	# Normal member
@@ -482,7 +502,7 @@ sub policyDestinationItemMatches
 		}
 
 		# Get group members
-		my $groupMembers = getGroupMembers($item);
+		my $groupMembers = getGroupMembers($item, $sessionData);
 		if (ref $groupMembers ne "ARRAY") {
 			$server->log(LOG_WARN,"[POLICIES] $debugTxt: Error '$groupMembers' while retrieving group members for destination group '$item'");
 			return -1;
