@@ -1,0 +1,76 @@
+# Accounting module schema
+# Copyright (C) 2009-2015, AllWorldIT
+# Copyright (C) 2008, LinuxRulz
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+
+/* Main accounting table, this defines the period the accounting items are over and how to track it */
+CREATE TABLE @PREFIX@accounting (
+	ID			@SERIAL_TYPE@,
+
+	PolicyID		@SERIAL_REF_TYPE@,
+	
+	Name			VARCHAR(255) NOT NULL,
+
+	/* Tracking Options */
+	Track			VARCHAR(255) NOT NULL,  /* Format:   <type>:<spec>
+
+					      SenderIP - This takes a bitmask to mask the IP with. A good default is /24 
+
+					      Sender & Recipient - Either "user@domain" (default), "user@" or "@domain" for the entire 
+					      		email addy or email addy domain respectively. 
+					   */
+
+	/* Period over which to account traffic */
+	AccountingPeriod		SMALLINT NOT NULL,  /* 0 - Track by day, 1 - Track by week, 2 - Track by month */
+
+	/* Limits for this period */
+	MessageCountLimit		@BIG_INTEGER_UNSIGNED@,  /* Limit is in Kbyte, NULL means no limit */
+	MessageCumulativeSizeLimit	@BIG_INTEGER_UNSIGNED@,  /* LImit is in Kbyte, NULL means no limit */
+
+	/* Verdict if limits are exceeded */
+	Verdict			VARCHAR(255), /* Verdict when limit is exceeded */
+	Data			TEXT, /* Data sent along with verdict */
+	
+	LastAccounting		SMALLINT NOT NULL DEFAULT '0',
+		
+	Comment			VARCHAR(1024),
+	
+	Disabled		SMALLINT NOT NULL DEFAULT '0',
+
+	FOREIGN KEY (PolicyID) REFERENCES @PREFIX@policies(ID)
+) @CREATE_TABLE_SUFFIX@;
+
+
+
+/* This table is used for tracking the accounting */
+CREATE TABLE @PREFIX@accounting_tracking (
+
+	AccountingID		@SERIAL_REF_TYPE@,
+	TrackKey		VARCHAR(@TRACK_KEY_LEN@),
+	PeriodKey		VARCHAR(@TRACK_KEY_LEN@),
+
+	/* Last time this record was update */
+	LastUpdate		@BIG_INTEGER_UNSIGNED@,  /* NULL means not updated yet */
+
+	MessageCount		@BIG_INTEGER_UNSIGNED@,
+	MessageCumulativeSize	@BIG_INTEGER_UNSIGNED@,  /* Counter is in Kbyte */
+	
+	UNIQUE (AccountingID,TrackKey,PeriodKey),
+	FOREIGN KEY (AccountingID) REFERENCES @PREFIX@accounting(ID)
+) @CREATE_TABLE_SUFFIX@;
+CREATE INDEX @PREFIX@accounting_tracking_idx1 ON @PREFIX@accounting_tracking (LastUpdate);
+

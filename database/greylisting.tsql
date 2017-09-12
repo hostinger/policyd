@@ -1,0 +1,132 @@
+# Greylisting module schema
+# Copyright (C) 2009-2015, AllWorldIT
+# Copyright (C) 2008, LinuxRulz
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+/* Greylisting */
+
+/*
+    NULL means to inherit
+*/
+CREATE TABLE @PREFIX@greylisting (
+	ID			@SERIAL_TYPE@,
+
+	PolicyID		@SERIAL_REF_TYPE@,
+
+	Name			VARCHAR(255) NOT NULL,
+
+
+	/* General greylisting settings */
+	UseGreylisting			SMALLINT,  /* Actually use greylisting */
+	GreylistPeriod			@BIG_INTEGER_UNSIGNED@,  /* Period in seconds to greylist for */
+
+	/* Record tracking */
+	Track				VARCHAR(255) NOT NULL,  /* Format:   <type>:<spec>
+							SenderIP - This takes a bitmask to mask the IP with, A good default is /24
+						*/
+
+	/* Bypass greylisting: sender+recipient level */
+	GreylistAuthValidity		@BIG_INTEGER_UNSIGNED@,  /* Period for which last authenticated greylist entry is valid for.
+						    This effectively bypasses greylisting for the second email a sender
+						    sends a recipient. */
+	GreylistUnAuthValidity		@BIG_INTEGER_UNSIGNED@,  /* Same as above but for unauthenticated entries */
+
+
+	/* Auto-whitelisting: sending server level */
+	UseAutoWhitelist		SMALLINT,  /* Use auto-whitelisting */
+	AutoWhitelistPeriod		@BIG_INTEGER_UNSIGNED@,  /* Period to look back to find authenticated triplets */
+	AutoWhitelistCount		@BIG_INTEGER_UNSIGNED@,  /* Count of authenticated triplets after which we auto-whitelist */
+	AutoWhitelistPercentage		@BIG_INTEGER_UNSIGNED@,  /* Percentage of at least Count triplets that must be authenticated
+							   before auto-whitelisting. This changes the behaviour or Count */
+
+	/* Auto-blacklisting: sending server level */
+	UseAutoBlacklist		SMALLINT,  /* Use auto-blacklisting */
+	AutoBlacklistPeriod		@BIG_INTEGER_UNSIGNED@,  /* Period to look back to find unauthenticated triplets */
+	AutoBlacklistCount		@BIG_INTEGER_UNSIGNED@,  /* Count of authenticated triplets after which we auto-whitelist */
+	AutoBlacklistPercentage		@BIG_INTEGER_UNSIGNED@,  /* Percentage of at least Count triplets that must be authenticated
+							   before auto-whitelisting. This changes the behaviour or Count */
+
+	Comment			VARCHAR(1024),
+
+	Disabled		SMALLINT NOT NULL DEFAULT '0',
+
+	FOREIGN KEY (PolicyID) REFERENCES @PREFIX@policies(ID)
+) @CREATE_TABLE_SUFFIX@;
+
+
+/* Whitelisted */
+CREATE TABLE @PREFIX@greylisting_whitelist (
+	ID			@SERIAL_TYPE@,
+
+	Source			VARCHAR(255) NOT NULL,  /* Either CIDR  a.b.c.d, a.b.c.d/x, or reversed   host*-*.whatever.com */
+
+	Comment			VARCHAR(1024),
+
+	Disabled		SMALLINT NOT NULL DEFAULT '0',
+
+	UNIQUE (Source)
+) @CREATE_TABLE_SUFFIX@;
+
+
+
+/* Auto-whitelistings */
+CREATE TABLE @PREFIX@greylisting_autowhitelist (
+	ID			@SERIAL_TYPE@,
+
+	TrackKey		VARCHAR(@TRACK_KEY_LEN@) NOT NULL,
+
+	Added			@BIG_INTEGER_UNSIGNED@ NOT NULL,
+	LastSeen		@BIG_INTEGER_UNSIGNED@ NOT NULL,
+
+	Comment			VARCHAR(1024),
+
+	UNIQUE (TrackKey)
+) @CREATE_TABLE_SUFFIX@;
+
+
+
+/* Auto-blacklistings */
+CREATE TABLE @PREFIX@greylisting_autoblacklist (
+	ID			@SERIAL_TYPE@,
+
+	TrackKey		VARCHAR(@TRACK_KEY_LEN@) NOT NULL,
+
+	Added			@BIG_INTEGER_UNSIGNED@ NOT NULL,
+
+	Comment			VARCHAR(1024),
+
+	UNIQUE (TrackKey)
+) @CREATE_TABLE_SUFFIX@;
+
+
+
+/* Greylist triplet tracking table */
+CREATE TABLE @PREFIX@greylisting_tracking (
+
+	TrackKey		VARCHAR(@TRACK_KEY_LEN@) NOT NULL, /* The address really, masked with whatever */
+	Sender			VARCHAR(255) NOT NULL,
+	Recipient		VARCHAR(255) NOT NULL,
+
+	FirstSeen		@BIG_INTEGER_UNSIGNED@ NOT NULL,
+	LastUpdate		@BIG_INTEGER_UNSIGNED@ NOT NULL,
+
+	Tries			@BIG_INTEGER_UNSIGNED@ NOT NULL,  /* Authentication tries */
+	Count			@BIG_INTEGER_UNSIGNED@ NOT NULL,  /* Authenticated count */
+
+	UNIQUE(TrackKey,Sender,Recipient)
+) @CREATE_TABLE_SUFFIX@;
+CREATE INDEX @PREFIX@greylisting_tracking_idx1 ON @PREFIX@greylisting_tracking (LastUpdate,Count);
+

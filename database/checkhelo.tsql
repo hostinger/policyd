@@ -1,0 +1,108 @@
+# CheckHelo module schema
+# Copyright (C) 2009-2015, AllWorldIT
+# Copyright (C) 2008, LinuxRulz
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+/* Helo checking */
+
+/*
+    NULL means to inherit
+*/
+CREATE TABLE @PREFIX@checkhelo (
+	ID			@SERIAL_TYPE@,
+
+	PolicyID		@SERIAL_REF_TYPE@,
+
+	Name			VARCHAR(255) NOT NULL,
+
+
+	/* Blacklisting, we want to reject people impersonating us */
+	UseBlacklist			SMALLINT,  /* Checks blacklist table */
+	BlacklistPeriod			@BIG_INTEGER_UNSIGNED@,  /* Period to keep the host blacklisted for, if not set or 0
+						    the check will be live */	
+
+	/* Random helo prevention */
+	UseHRP				SMALLINT,  /* Use helo randomization prevention */
+	HRPPeriod			@BIG_INTEGER_UNSIGNED@,  /* Period/window we check for random helo's */
+	HRPLimit			@BIG_INTEGER_UNSIGNED@,  /* Our limit for the number of helo's is this */
+
+	/* RFC compliance options */
+	RejectInvalid			SMALLINT,  /* Reject invalid HELO */
+	RejectIP			SMALLINT,  /* Reject if HELO is an IP */
+	RejectUnresolvable		SMALLINT,  /* Reject unresolvable HELO */
+
+
+	Comment			VARCHAR(1024),
+
+	Disabled		SMALLINT NOT NULL DEFAULT '0',
+
+	FOREIGN KEY (PolicyID) REFERENCES @PREFIX@policies(ID)
+) @CREATE_TABLE_SUFFIX@;
+
+
+
+/* Blacklisted HELO's */
+CREATE TABLE @PREFIX@checkhelo_blacklist (
+	ID			@SERIAL_TYPE@,
+
+	Helo			VARCHAR(255) NOT NULL,
+
+	Comment			VARCHAR(1024),
+
+	Disabled		SMALLINT NOT NULL DEFAULT '0',
+
+	UNIQUE (Helo)
+) @CREATE_TABLE_SUFFIX@;
+
+INSERT INTO @PREFIX@checkhelo_blacklist (Helo,Comment) VALUES
+	('127.0.0.1','Blacklist hosts claiming to be 127.0.0.1');
+
+INSERT INTO @PREFIX@checkhelo_blacklist (Helo,Comment) VALUES
+	('[127.0.0.1]','Blacklist hosts claiming to be [127.0.0.1]');
+
+INSERT INTO @PREFIX@checkhelo_blacklist (Helo,Comment) VALUES
+	('localhost','Blacklist hosts claiming to be localhost');
+
+INSERT INTO @PREFIX@checkhelo_blacklist (Helo,Comment) VALUES
+	('localhost.localdomain','Blacklist hosts claiming to be localhost.localdomain');
+
+
+
+/* Whitelisted CIDR's */
+CREATE TABLE @PREFIX@checkhelo_whitelist (
+	ID			@SERIAL_TYPE@,
+
+	Source			VARCHAR(@TRACK_KEY_LEN@) NOT NULL,  /* Valid format is:    SenderIP:a.b.c.d[/e]  */
+
+	Comment			VARCHAR(1024),
+
+	Disabled		SMALLINT NOT NULL DEFAULT '0',
+
+	UNIQUE (Source)
+) @CREATE_TABLE_SUFFIX@;
+
+
+
+/* Helo tracking table */
+CREATE TABLE @PREFIX@checkhelo_tracking (
+	Address			VARCHAR(64) NOT NULL,
+	Helo			VARCHAR(255) NOT NULL,
+	LastUpdate		@BIG_INTEGER_UNSIGNED@ NOT NULL,
+
+	UNIQUE (Address,Helo)
+) @CREATE_TABLE_SUFFIX@;
+CREATE INDEX @PREFIX@checkhelo_tracking_idx1 ON @PREFIX@checkhelo_tracking (LastUpdate);
+

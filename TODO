@@ -1,0 +1,64 @@
+Use prefork, we cannot guarantee how long the plugins/modules will take to run and don't want to holdup other queries
+
+--------------
+
+Immediate requirements:
+
+- Whitelist/Blacklist of email addy or sending server or regex on reverse dns name  (2.1)
+* This should allow an admin to whitelist a sender and bypass all future checks for a sending email addy
+
+- Greylisting: regex   (2.1)
+* Option, bypass greylisting for non-dynamic reverse DNS hosts
+* Option, bypass greylisting for hosts where HELO == reverse dns
+* Option to train only
+
+- CheckHelo Blacklisting against regex/wildcard?  (2.1)
+* Select the current helo's and compare to the helo blacklist list
+
+- Add server IP column to tables to track which server is adding/updating?  (2.1)
+
+- option to not add timestamps to logs (we capture logs with daemontools which adds (numeric) timestamps)  (2.1)
+* log_timestamp=false in options
+
+- Email notification when hosts are added to whitelist/blacklist  (2.1)
+
+* Blacklist on excessive greylist retries, ie 50 in 1 minute ... etc. (2.1)
+- num triplets?
+- num attempts?
+
+- Spamtrap where the IP address get blacklisted for configurable time period per trap (2.1)
+
+- Allow configuration if postmaster@ bypasses tests (2.1) (#4)
+
+- Web interface
+* BCC To in amavis plugin needs Merge option, don't overwrite fields offer merge option?
+* Add "enable" box so new entries are not disabled automagically apon adding
+
+- Quotas based on per-recipient and per-message sent, make this optional. (2.1)
+
+- Special treatment of    user+something@domain    and changing to   user@domain, global config option   (2.1)
+
+- Template based replies for greylisting, helo checks ... etc  (2.1)
+
+- Configurable rejection messages for all modules  (2.1)
+
+- Honor bypass_mode for all db queries (2.1)
+
+--------------
+
+Planned Features:
+
+* Milter support as a different Protocol
+
+* Commandline tool to check the flow of policy matching and the verdicts
+
+* GUI support to see which modules are linked to the policy (using an api to register each modules' check function)
+
+* Add firewall rules for abuse greylisted hosts?
+
+* Caching (2.2)
+
+* ability to disable tcp connection logs while keeping action=* logs (perhaps move the latter from info to notice?)
+
+
+

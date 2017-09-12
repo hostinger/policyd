@@ -1,0 +1,114 @@
+Installing PolicyD v2.
+
+
+*
+* Requirements for PolicyD v2
+*
+
+Note: For CentOS you will need to use RPMForge repositories.
+
+- MySQL or PostgreSQL or SQLite
+	Debian based: mysql-server
+	RPM based: mysql-server
+
+- Net::Server >= 0.96
+	Debian based: libnet-server-perl
+	RPM based: perl-Net-Server
+
+- Net::CIDR
+	Debian based: libnet-cidr-perl
+	RPM based: perl-Net-CIDR
+
+- Net::DNS
+	Debian based: libnet-dns-perl
+	RPM based: perl-Net-DNS
+
+- Config::IniFiles
+	Debian based: libconfig-inifiles-perl
+	RPM based: perl-Config-IniFiles
+
+- Cache::FastMmap
+	Debian based: libcache-fastmmap-perl
+	RPM based: perl-Cache-FastMmap
+
+- DBI
+	Debian based: libdbi-perl
+	RPM based: perl-DBI
+
+- Mail::SPF (Required for CheckSPF module)
+	Debian based: libmail-spf-perl
+
+- Date::Parse  (TimeDate)
+	Debian based: libtimedate-perl
+	RPM based: perl-TimeDate
+
+
+* Requirements for webui
+- PHP v5+ (compiled with PDO support for your DB)
+
+
+
+
+1. Setup MySQL  (or whichever database you plan to use)
+
+a. In database/ run...
+$ for i in  core.tsql access_control.tsql quotas.tsql amavis.tsql checkhelo.tsql checkspf.tsql greylisting.tsql accounting.tsql
+$ do 
+$        ./convert-tsql mysql $i
+$ done > policyd.mysql
+
+This will build policyd.mysql, be sure to ALWAYS load core.tsql first, you only really need the
+schema for the modules you plan to use, no harm in adding all of them though.
+
+b. Load policyd.mysql into MySQL
+$ mysql -u root -p policyd < policyd.mysql
+
+
+2. Put cluebringer.conf in your /etc/cbpolicyd directory and adjust cluebringer.conf with your MySQL database details
+mkdir /etc/cbpolicyd
+cp cluebringer.conf /etc/cbpolicyd/cluebringer.conf
+
+3. Copy the cbp/ & awitpt/ directories into /usr/local/lib/cbpolicyd-2.1/
+mkdir /usr/local/lib/cbpolicyd-2.1
+cp -r cbp /usr/local/lib/cbpolicyd-2.1/
+cp -r awitpt/awitpt /usr/local/lib/cbpolicyd-2.1/
+
+4. Copy cbpolicyd and cbpadmin into /usr/local/bin
+cp cbpadmin /usr/local/bin/
+cp cbpolicyd /usr/local/sbin/
+
+
+5. Setup system dirs ...
+mkdir /var/log/cbpolicyd
+mkdir /var/run/cbpolicyd
+
+If you are running cbpolicyd as an unpriv user, then ...
+chown cbpolicyd.cbpolicyd /var/log/cbpolicyd /var/run/cbpolicyd
+
+
+6. Install the webui/*  into your apache directory, check out   includes/config.php  and adjust the MySQL server details.
+
+
+7. Setup Postfix to use cbpolicyd...
+Add the following Postfix config...
+	check_policy_service inet:127.0.0.1:10031
+in BOTH  smtpd_recipient_restrictions and smtpd_end_of_data_restrictions.
+
+
+** Optional Amavisd Supprt ***
+
+8. Copy your amavisd from /usr/sbin/amavisd and patch it with contrib/amavisd-new-2.5.3_policyd-200802070918.patch like this...
+$ patch < contrib/amavisd-new-2.5.3_policyd-200802070918.patch
+After this change your initscripts to start the patched amavisd.
+
+
+9. Copy amavisd-policyd.pm where you see fit, and add this configuration line to your amavisd.conf file...
+include_config_files('/path/to/amavisd-policyd.pm');
+
+10. Edit the top of amavisd-policyd.pm and change ...
+use lib('/root/cluebringer-trunk');  # to point to the directory which contains cbp/
+
+my $DB_dsn = "DBI:mysql:database=policyd;host=localhost";  # to point to your MySQL DB
+
+
+11. Fire everything up and browse to the web gui to configure

@@ -1,0 +1,6 @@
+* SPF with actions for each result  (greylist if spf gives soft-fail, bypass greylist for SPF pass)
+
+* Weighted tests
+
+* Dump stats to file so we can pickup in net-snmp
+
